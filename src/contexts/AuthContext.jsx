@@ -18,6 +18,7 @@ export const AuthProvider = ({ children }) => {
     setLoading(false)
   }, [])
 
+  // ========== REGISTER ==========
   const register = async (username, password) => {
     const { data: existing } = await supabase
       .from('users')
@@ -45,11 +46,22 @@ export const AuthProvider = ({ children }) => {
     return true
   }
 
+  // ========== LOGIN (with last_login update) ==========
   const login = async (username, password) => {
-    // Super admin hardcoded login
+    // Super admin login
     if (username === 'CodeXyra' && password === 'Code@123') {
+      console.log('Super admin login – updating last_login...')
+      const { error: updateError } = await supabase
+        .from('users')
+        .update({ last_login: new Date() })
+        .eq('username', 'CodeXyra')
+      if (updateError) {
+        console.error('Failed to update super admin last_login:', updateError)
+      } else {
+        console.log('Super admin last_login updated successfully')
+      }
       const userData = {
-        id: 'super-admin-id',
+        id: '00000000-0000-0000-0000-000000000001',
         username: 'CodeXyra',
         role: 'super_admin',
         tenantId: null
@@ -71,6 +83,13 @@ export const AuthProvider = ({ children }) => {
       showToast('Invalid username or password', 'error')
       return false
     }
+    // Update last login timestamp
+    const { error: updateError } = await supabase
+      .from('users')
+      .update({ last_login: new Date() })
+      .eq('id', data.id)
+    if (updateError) console.error('Failed to update last_login for normal user:', updateError)
+
     const userData = {
       id: data.id,
       username: data.username,
@@ -83,11 +102,13 @@ export const AuthProvider = ({ children }) => {
     return true
   }
 
+  // ========== LOGOUT ==========
   const logout = () => {
     localStorage.removeItem('cx_user')
     setUser(null)
   }
 
+  // ========== PASSWORD & USERNAME CHANGES ==========
   const changePassword = async (oldPassword, newPassword) => {
     if (!user || user.role === 'super_admin') return false
     const { data, error } = await supabase
@@ -148,6 +169,7 @@ export const AuthProvider = ({ children }) => {
     return true
   }
 
+  // ========== WORKER MANAGEMENT ==========
   const addWorker = async (username, password) => {
     if (user.role !== 'admin') return false
     const { error } = await supabase
@@ -182,22 +204,35 @@ export const AuthProvider = ({ children }) => {
     return data || []
   }
 
-  // Super admin functions
+  // ========== SUPER ADMIN FUNCTIONS ==========
   const getAllUsers = async () => {
     if (user?.role !== 'super_admin') return []
-    const { data } = await supabase.from('users').select('*').order('created_at', { ascending: false })
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .order('created_at', { ascending: false })
+    if (error) return []
     return data || []
   }
 
   const getAllRatings = async () => {
     if (user?.role !== 'super_admin') return []
-    const { data } = await supabase.from('ratings').select('*').order('created_at', { ascending: false })
+    const { data, error } = await supabase
+      .from('ratings')
+      .select('*')
+      .order('created_at', { ascending: false })
+    if (error) return []
     return data || []
   }
 
-  const getSystemLogs = async () => {
+  const getSystemLogs = async (limit = 200) => {
     if (user?.role !== 'super_admin') return []
-    const { data } = await supabase.from('system_logs').select('*').order('created_at', { ascending: false })
+    const { data, error } = await supabase
+      .from('system_logs')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(limit)
+    if (error) return []
     return data || []
   }
 
@@ -208,7 +243,6 @@ export const AuthProvider = ({ children }) => {
 
   const updateSuperAdminPassword = async (newPassword) => {
     if (user?.role !== 'super_admin') return false
-    // Update the hardcoded check – we can also update in DB, but here we just update the hardcoded check? Better to update DB.
     const { error } = await supabase.from('users').update({ password: newPassword }).eq('username', 'CodeXyra')
     if (error) {
       showToast('Failed to update password', 'error')
