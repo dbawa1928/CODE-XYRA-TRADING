@@ -33,7 +33,7 @@ const Register = () => {
         <form onSubmit={handleSubmit} className="space-y-6">
           <input type="text" placeholder="Username" value={username} onChange={(e) => setUsername(e.target.value)} className="input-field" required autoComplete="username" />
           <input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} className="input-field" required autoComplete="new-password" />
-          <input type="password" placeholder="Confirm Password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="input-field" required />
+          <input type="password" placeholder="Confirm Password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="input-field" required autoComplete="off" />
           {error && <div className="bg-red-100 text-red-700 p-3 rounded-lg text-sm">{error}</div>}
           <button type="submit" className="btn-primary w-full">Register</button>
         </form>

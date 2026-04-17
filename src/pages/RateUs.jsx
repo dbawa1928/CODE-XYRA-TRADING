@@ -5,6 +5,7 @@ import BackButton from '../components/BackButton'
 import { supabase } from '../supabaseClient'
 import { useToast } from '../contexts/ToastContext'
 import { useLanguage } from '../contexts/LanguageContext'
+import { useAuth } from '../contexts/AuthContext'
 import StarRatings from 'react-star-ratings'
 
 const RateUs = () => {
@@ -12,10 +13,15 @@ const RateUs = () => {
   const [submitted, setSubmitted] = useState(false)
   const { showToast } = useToast()
   const { t } = useLanguage()
+  const { user } = useAuth()
 
   const submitRating = async () => {
     if (rating === 0) return showToast('Select a rating', 'error')
-    const { error } = await supabase.from('ratings').insert([{ rating }])
+    const { error } = await supabase.from('ratings').insert([{ 
+      rating, 
+      user_id: user?.id, 
+      username: user?.username 
+    }])
     if (error) showToast('Error saving rating', 'error')
     else { setSubmitted(true); showToast('Thank you!', 'success') }
   }
@@ -30,11 +36,24 @@ const RateUs = () => {
           <p className="text-gray-600 mb-8">Your feedback helps us improve!</p>
           {!submitted ? (
             <>
-              <div className="flex justify-center mb-6"><StarRatings rating={rating} starRatedColor="#fbbf24" starHoverColor="#f59e0b" changeRating={setRating} numberOfStars={5} starDimension="40px" starSpacing="8px" /></div>
+              <div className="flex justify-center mb-6">
+                <StarRatings 
+                  rating={rating} 
+                  starRatedColor="#fbbf24" 
+                  starHoverColor="#f59e0b" 
+                  changeRating={setRating} 
+                  numberOfStars={5} 
+                  starDimension="40px" 
+                  starSpacing="8px" 
+                />
+              </div>
               <button onClick={submitRating} className="btn-primary">Submit Rating</button>
             </>
           ) : (
-            <div><p className="text-green-600 text-lg mb-4">Thank you for rating us!</p><button onClick={() => setSubmitted(false)} className="btn-primary">Rate Again</button></div>
+            <div>
+              <p className="text-green-600 text-lg mb-4">Thank you for rating us!</p>
+              <button onClick={() => setSubmitted(false)} className="btn-primary">Rate Again</button>
+            </div>
           )}
         </div>
       </main>

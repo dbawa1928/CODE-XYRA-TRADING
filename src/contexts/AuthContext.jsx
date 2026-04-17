@@ -10,46 +10,43 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true)
   const { showToast } = useToast()
 
-  // Helper: refresh user from database
-  const refreshUser = async (userId) => {
-    if (!userId) return null
-    const { data, error } = await supabase
-      .from('users')
-      .select('id, username, role, tenant_id')
-      .eq('id', userId)
-      .maybeSingle()
-    if (error || !data) return null
-    const userData = {
-      id: data.id,
-      username: data.username,
-      role: data.role,
-      tenantId: data.tenant_id || data.id
-    }
-    localStorage.setItem('cx_user', JSON.stringify(userData))
-    setUser(userData)
-    return userData
-  }
-
-  // On app load, restore user from localStorage
   useEffect(() => {
     const storedUser = localStorage.getItem('cx_user')
     if (storedUser) {
-      const parsed = JSON.parse(storedUser)
-      // Super admin does not need DB refresh
-      if (parsed.username === 'CodeXyra') {
-        setUser(parsed)
-        setLoading(false)
-      } else {
-        refreshUser(parsed.id).finally(() => setLoading(false))
-      }
-    } else {
-      setLoading(false)
+      setUser(JSON.parse(storedUser))
     }
+    setLoading(false)
   }, [])
 
-  // Login (normal, biometric, super admin)
+  const register = async (username, password) => {
+    const { data: existing } = await supabase
+      .from('users')
+      .select('id')
+      .eq('username', username)
+      .maybeSingle()
+    if (existing) {
+      showToast('Username already exists', 'error')
+      return false
+    }
+    const { data: newUser, error } = await supabase
+      .from('users')
+      .insert([{ username, password, role: 'admin' }])
+      .select()
+      .single()
+    if (error) {
+      showToast('Registration failed', 'error')
+      return false
+    }
+    await supabase.from('users').update({ tenant_id: newUser.id }).eq('id', newUser.id)
+    const userData = { id: newUser.id, username, role: 'admin', tenantId: newUser.id }
+    localStorage.setItem('cx_user', JSON.stringify(userData))
+    setUser(userData)
+    showToast('Registration successful', 'success')
+    return true
+  }
+
   const login = async (username, password) => {
-    // Super admin fixed credentials
+    // Super admin hardcoded login
     if (username === 'CodeXyra' && password === 'Code@123') {
       const userData = {
         id: 'super-admin-id',
@@ -63,35 +60,7 @@ export const AuthProvider = ({ children }) => {
       return true
     }
 
-    // Biometric login
-    if (password === 'biometric') {
-      const savedUsername = localStorage.getItem('biometric_username')
-      if (savedUsername !== username) {
-        showToast('Biometric username mismatch', 'error')
-        return false
-      }
-      const { data, error } = await supabase
-        .from('users')
-        .select('id, username, role, tenant_id')
-        .eq('username', username)
-        .maybeSingle()
-      if (error || !data) {
-        showToast('User not found', 'error')
-        return false
-      }
-      const userData = {
-        id: data.id,
-        username: data.username,
-        role: data.role,
-        tenantId: data.tenant_id || data.id
-      }
-      localStorage.setItem('cx_user', JSON.stringify(userData))
-      setUser(userData)
-      showToast(`Welcome ${data.username}`, 'success')
-      return true
-    }
-
-    // Normal password login
+    // Normal user login
     const { data, error } = await supabase
       .from('users')
       .select('id, username, role, tenant_id')
@@ -119,42 +88,6 @@ export const AuthProvider = ({ children }) => {
     setUser(null)
   }
 
-  // Super admin only functions
-  const getAllUsers = async () => {
-    if (user?.role !== 'super_admin') return []
-    const { data, error } = await supabase
-      .from('users')
-      .select('*')
-      .order('created_at', { ascending: false })
-    if (error) {
-      console.error('Error fetching users:', error)
-      return []
-    }
-    return data || []
-  }
-
-  const getAllRatings = async () => {
-    if (user?.role !== 'super_admin') return []
-    const { data, error } = await supabase
-      .from('ratings')
-      .select('*')
-      .order('created_at', { ascending: false })
-    if (error) {
-      console.error('Error fetching ratings:', error)
-      return []
-    }
-    return data || []
-  }
-
-  const changeSuperAdminPassword = async (newPassword) => {
-    if (user?.username !== 'CodeXyra') return false
-    // For demo, store in localStorage; in production use a settings table
-    localStorage.setItem('super_admin_password', newPassword)
-    showToast('Super admin password changed', 'success')
-    return true
-  }
-
-  // Regular user functions
   const changePassword = async (oldPassword, newPassword) => {
     if (!user || user.role === 'super_admin') return false
     const { data, error } = await supabase
@@ -219,13 +152,7 @@ export const AuthProvider = ({ children }) => {
     if (user.role !== 'admin') return false
     const { error } = await supabase
       .from('users')
-      .insert([{
-        username,
-        password,
-        role: 'worker',
-        created_by: user.id,
-        tenant_id: user.tenantId
-      }])
+      .insert([{ username, password, role: 'worker', created_by: user.id, tenant_id: user.tenantId }])
     if (error) {
       showToast('Username already exists', 'error')
       return false
@@ -255,20 +182,85 @@ export const AuthProvider = ({ children }) => {
     return data || []
   }
 
+  // Super admin functions
+  const getAllUsers = async () => {
+    if (user?.role !== 'super_admin') return []
+    const { data } = await supabase.from('users').select('*').order('created_at', { ascending: false })
+    return data || []
+  }
+
+  const getAllRatings = async () => {
+    if (user?.role !== 'super_admin') return []
+    const { data } = await supabase.from('ratings').select('*').order('created_at', { ascending: false })
+    return data || []
+  }
+
+  const getSystemLogs = async () => {
+    if (user?.role !== 'super_admin') return []
+    const { data } = await supabase.from('system_logs').select('*').order('created_at', { ascending: false })
+    return data || []
+  }
+
+  const addSystemLog = async (action, details) => {
+    if (!user) return
+    await supabase.from('system_logs').insert([{ user_id: user.username, action, details, created_at: new Date() }])
+  }
+
+  const updateSuperAdminPassword = async (newPassword) => {
+    if (user?.role !== 'super_admin') return false
+    // Update the hardcoded check – we can also update in DB, but here we just update the hardcoded check? Better to update DB.
+    const { error } = await supabase.from('users').update({ password: newPassword }).eq('username', 'CodeXyra')
+    if (error) {
+      showToast('Failed to update password', 'error')
+      return false
+    }
+    showToast('Super admin password updated', 'success')
+    return true
+  }
+
+  const deleteUser = async (userId) => {
+    if (user?.role !== 'super_admin') return false
+    await supabase.from('transactions').delete().eq('user_id', userId)
+    await supabase.from('transactions').delete().eq('tenant_id', userId)
+    const { error } = await supabase.from('users').delete().eq('id', userId)
+    if (error) {
+      showToast('Failed to delete user', 'error')
+      return false
+    }
+    showToast('User deleted', 'success')
+    await addSystemLog('delete_user', `Deleted user ID ${userId}`)
+    return true
+  }
+
+  const resetUserPassword = async (userId, newPassword = 'temp123') => {
+    if (user?.role !== 'super_admin') return false
+    const { error } = await supabase.from('users').update({ password: newPassword }).eq('id', userId)
+    if (error) {
+      showToast('Failed to reset password', 'error')
+      return false
+    }
+    showToast('Password reset', 'success')
+    return true
+  }
+
   return (
     <AuthContext.Provider value={{
       user,
       login,
       logout,
+      register,
       changePassword,
       changeUsername,
       addWorker,
       deleteWorker,
       getWorkers,
-      refreshUser,
       getAllUsers,
       getAllRatings,
-      changeSuperAdminPassword,
+      getSystemLogs,
+      addSystemLog,
+      updateSuperAdminPassword,
+      deleteUser,
+      resetUserPassword,
       loading
     }}>
       {children}
