@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './contexts/AuthContext'
+import { useInactivity } from './hooks/useInactivity'   // <-- ADD THIS
 import ScrollToTop from './components/ScrollToTop'
 import Splash from './pages/Splash'
 import Login from './pages/Login'
@@ -14,10 +15,13 @@ import PrivacyPolicy from './pages/PrivacyPolicy'
 import Analytics from './pages/Analytics'
 import Profile from './pages/Profile'
 import ManageWorkers from './pages/ManageWorkers'
+import AdminDashboard from './pages/AdminDashboard'
 import ProtectedRoute from './components/ProtectedRoute'
 
 function App() {
   const { loading } = useAuth()
+  useInactivity(3)   // <-- ADD THIS (3 minutes timeout)
+
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-primary text-white">Loading...</div>
   return (
     <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
@@ -36,6 +40,7 @@ function App() {
         <Route path="/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
         <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
         <Route path="/manage-workers" element={<ProtectedRoute><ManageWorkers /></ProtectedRoute>} />
+        <Route path="/admin-dashboard" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </Router>

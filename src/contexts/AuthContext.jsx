@@ -10,7 +10,7 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true)
   const { showToast } = useToast()
 
-  // Helper: fetch user from database by id
+  // Helper: refresh user from database
   const refreshUser = async (userId) => {
     if (!userId) return null
     const { data, error } = await supabase
@@ -30,57 +30,46 @@ export const AuthProvider = ({ children }) => {
     return userData
   }
 
-  // On app load, restore user from localStorage and refresh if needed
+  // On app load, restore user from localStorage
   useEffect(() => {
     const storedUser = localStorage.getItem('cx_user')
     if (storedUser) {
       const parsed = JSON.parse(storedUser)
-      refreshUser(parsed.id).finally(() => setLoading(false))
+      // Super admin does not need DB refresh
+      if (parsed.username === 'CodeXyra') {
+        setUser(parsed)
+        setLoading(false)
+      } else {
+        refreshUser(parsed.id).finally(() => setLoading(false))
+      }
     } else {
       setLoading(false)
     }
   }, [])
 
-  // Register a new admin (each user is their own tenant)
-  const register = async (username, password) => {
-    // Check if username exists
-    const { data: existing } = await supabase
-      .from('users')
-      .select('id')
-      .eq('username', username)
-      .maybeSingle()
-    if (existing) {
-      showToast('Username already exists', 'error')
-      return false
-    }
-    const { data: newUser, error } = await supabase
-      .from('users')
-      .insert([{ username, password, role: 'admin' }])
-      .select()
-      .single()
-    if (error) {
-      showToast('Registration failed', 'error')
-      return false
-    }
-    // Set tenant_id = own id
-    await supabase.from('users').update({ tenant_id: newUser.id }).eq('id', newUser.id)
-    const userData = { id: newUser.id, username, role: 'admin', tenantId: newUser.id }
-    localStorage.setItem('cx_user', JSON.stringify(userData))
-    setUser(userData)
-    showToast('Registration successful', 'success')
-    return true
-  }
-
-  // Login with username/password OR biometric (password = 'biometric')
+  // Login (normal, biometric, super admin)
   const login = async (username, password) => {
-    // Special case for biometric login
+    // Super admin fixed credentials
+    if (username === 'CodeXyra' && password === 'Code@123') {
+      const userData = {
+        id: 'super-admin-id',
+        username: 'CodeXyra',
+        role: 'super_admin',
+        tenantId: null
+      }
+      localStorage.setItem('cx_user', JSON.stringify(userData))
+      setUser(userData)
+      showToast('Welcome Super Admin', 'success')
+      return true
+    }
+
+    // Biometric login
     if (password === 'biometric') {
       const savedUsername = localStorage.getItem('biometric_username')
       if (savedUsername !== username) {
         showToast('Biometric username mismatch', 'error')
         return false
       }
-      // Fetch user data from database using the username
       const { data, error } = await supabase
         .from('users')
         .select('id, username, role, tenant_id')
@@ -127,13 +116,47 @@ export const AuthProvider = ({ children }) => {
 
   const logout = () => {
     localStorage.removeItem('cx_user')
-    // Do NOT remove biometric data – that would be a user choice
     setUser(null)
   }
 
-  // Change password (requires old password)
+  // Super admin only functions
+  const getAllUsers = async () => {
+    if (user?.role !== 'super_admin') return []
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .order('created_at', { ascending: false })
+    if (error) {
+      console.error('Error fetching users:', error)
+      return []
+    }
+    return data || []
+  }
+
+  const getAllRatings = async () => {
+    if (user?.role !== 'super_admin') return []
+    const { data, error } = await supabase
+      .from('ratings')
+      .select('*')
+      .order('created_at', { ascending: false })
+    if (error) {
+      console.error('Error fetching ratings:', error)
+      return []
+    }
+    return data || []
+  }
+
+  const changeSuperAdminPassword = async (newPassword) => {
+    if (user?.username !== 'CodeXyra') return false
+    // For demo, store in localStorage; in production use a settings table
+    localStorage.setItem('super_admin_password', newPassword)
+    showToast('Super admin password changed', 'success')
+    return true
+  }
+
+  // Regular user functions
   const changePassword = async (oldPassword, newPassword) => {
-    if (!user) return false
+    if (!user || user.role === 'super_admin') return false
     const { data, error } = await supabase
       .from('users')
       .select('id')
@@ -156,10 +179,8 @@ export const AuthProvider = ({ children }) => {
     return true
   }
 
-  // Change username (requires password confirmation)
   const changeUsername = async (newUsername, password) => {
-    if (!user) return false
-    // Verify password
+    if (!user || user.role === 'super_admin') return false
     const { data, error } = await supabase
       .from('users')
       .select('id')
@@ -170,7 +191,6 @@ export const AuthProvider = ({ children }) => {
       showToast('Incorrect password', 'error')
       return false
     }
-    // Check if new username already exists
     const { data: existing } = await supabase
       .from('users')
       .select('id')
@@ -195,7 +215,6 @@ export const AuthProvider = ({ children }) => {
     return true
   }
 
-  // Worker management (admin only)
   const addWorker = async (username, password) => {
     if (user.role !== 'admin') return false
     const { error } = await supabase
@@ -241,13 +260,15 @@ export const AuthProvider = ({ children }) => {
       user,
       login,
       logout,
-      register,
       changePassword,
       changeUsername,
       addWorker,
       deleteWorker,
       getWorkers,
       refreshUser,
+      getAllUsers,
+      getAllRatings,
+      changeSuperAdminPassword,
       loading
     }}>
       {children}

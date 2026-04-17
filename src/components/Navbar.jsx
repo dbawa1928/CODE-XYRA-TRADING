@@ -2,12 +2,12 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useLanguage } from '../contexts/LanguageContext'
 import { GiFarmer, GiWheat } from 'react-icons/gi'
-import { FaSignOutAlt } from 'react-icons/fa'
+import { FaSignOutAlt, FaTachometerAlt } from 'react-icons/fa'
 import ThemeToggle from './ThemeToggle'
 import LanguageSwitcher from './LanguageSwitcher'
 
 const Navbar = () => {
-  const { logout } = useAuth()
+  const { logout, user } = useAuth()
   const { t } = useLanguage()
   const navigate = useNavigate()
 
@@ -33,6 +33,14 @@ const Navbar = () => {
             </h1>
           </div>
           <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+            {user?.role === 'super_admin' && (
+              <button
+                onClick={() => navigate('/admin-dashboard')}
+                className="flex items-center gap-1 bg-white/10 hover:bg-white/20 text-white px-2 sm:px-3 py-1.5 rounded-lg transition text-xs sm:text-sm"
+              >
+                <FaTachometerAlt size={14} /> <span className="hidden sm:inline">Admin</span>
+              </button>
+            )}
             <LanguageSwitcher />
             <ThemeToggle />
             <button
