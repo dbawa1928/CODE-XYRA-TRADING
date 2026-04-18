@@ -19,32 +19,30 @@ export const AuthProvider = ({ children }) => {
   }, [])
 
   // ========== REGISTER ==========
-  const register = async (username, password) => {
-    const { data: existing } = await supabase
-      .from('users')
-      .select('id')
-      .eq('username', username)
-      .maybeSingle()
-    if (existing) {
-      showToast('Username already exists', 'error')
-      return false
-    }
-    const { data: newUser, error } = await supabase
-      .from('users')
-      .insert([{ username, password, role: 'admin' }])
-      .select()
-      .single()
-    if (error) {
-      showToast('Registration failed', 'error')
-      return false
-    }
-    await supabase.from('users').update({ tenant_id: newUser.id }).eq('id', newUser.id)
-    const userData = { id: newUser.id, username, role: 'admin', tenantId: newUser.id }
-    localStorage.setItem('cx_user', JSON.stringify(userData))
-    setUser(userData)
-    showToast('Registration successful', 'success')
-    return true
+const register = async (username, password) => {
+  const { data: existing } = await supabase
+    .from('users')
+    .select('id')
+    .eq('username', username)
+    .maybeSingle()
+  if (existing) {
+    showToast('Username already exists', 'error')
+    return false
   }
+  const { data: newUser, error } = await supabase
+    .from('users')
+    .insert([{ username, password, role: 'admin' }])
+    .select()
+    .single()
+  if (error) {
+    showToast('Registration failed', 'error')
+    return false
+  }
+  await supabase.from('users').update({ tenant_id: newUser.id }).eq('id', newUser.id)
+  // ❌ Do NOT set localStorage or user state here
+  showToast('Registration successful! Please log in.', 'success')
+  return true
+}
 
   // ========== LOGIN (with last_login update) ==========
   const login = async (username, password) => {
@@ -300,4 +298,4 @@ export const AuthProvider = ({ children }) => {
       {children}
     </AuthContext.Provider>
   )
-}
+                                                           }
