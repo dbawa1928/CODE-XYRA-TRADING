@@ -9,7 +9,7 @@ import { useToast } from '../contexts/ToastContext'
 import { useLanguage } from '../contexts/LanguageContext'
 import { useAutoSave } from '../hooks/useAutoSave'
 import { useAuth } from '../contexts/AuthContext'
-import { FaCalculator, FaFileInvoice, FaFileAlt, FaPlus } from 'react-icons/fa'
+import { FaCalculator, FaFileInvoice, FaFileAlt, FaPlus, FaStar } from 'react-icons/fa'
 
 const Calculation = () => {
   const { showToast } = useToast()
@@ -247,6 +247,13 @@ const Calculation = () => {
             <div className="flex flex-col sm:flex-row gap-4 mt-6">
               <button onClick={() => setShowIModal(true)} className="bg-green-600 text-white px-5 py-2 rounded-xl"><FaFileInvoice className="inline mr-2" /> Generate I Form</button>
               <button onClick={() => setShowJModal(true)} className="bg-orange-600 text-white px-5 py-2 rounded-xl"><FaFileAlt className="inline mr-2" /> Generate J Form</button>
+              {/* Highlighted feedback button */}
+              <button
+                onClick={() => setShowFeedbackModal(true)}
+                className="bg-yellow-500 hover:bg-yellow-600 text-white px-5 py-2 rounded-xl flex items-center justify-center gap-2 transition"
+              >
+                <FaStar /> Give Feedback
+              </button>
             </div>
           </div>
         )}
