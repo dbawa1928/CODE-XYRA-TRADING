@@ -3,6 +3,7 @@ import Navbar from '../components/Navbar'
 import Footer from '../components/Footer'
 import BackButton from '../components/BackButton'
 import ReceiptModal from '../components/ReceiptModal'
+import FeedbackModal from '../components/FeedbackModal'
 import { supabase } from '../supabaseClient'
 import { useToast } from '../contexts/ToastContext'
 import { useLanguage } from '../contexts/LanguageContext'
@@ -32,6 +33,7 @@ const Calculation = () => {
   const [calculationResult, setCalculationResult] = useState(null)
   const [showIModal, setShowIModal] = useState(false)
   const [showJModal, setShowJModal] = useState(false)
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false)
   const [lastSavedHash, setLastSavedHash] = useState(null)
   const { loadDraft, clearDraft } = useAutoSave('calc_draft', formData)
 
@@ -48,7 +50,12 @@ const Calculation = () => {
 
   useEffect(() => {
     const defaults = cropDefaults[formData.crop]
-    setFormData(prev => ({ ...prev, rate: defaults.rate, commissionPercent: defaults.commissionPercent, labourCost: defaults.labourCost }))
+    setFormData(prev => ({
+      ...prev,
+      rate: defaults.rate,
+      commissionPercent: defaults.commissionPercent,
+      labourCost: defaults.labourCost
+    }))
   }, [formData.crop])
 
   useEffect(() => {
@@ -87,9 +94,15 @@ const Calculation = () => {
   const generateHash = (data) => `${data.farmerName}|${data.crop}|${data.date}|${data.weightKg}|${data.bagWeight}|${data.rate}|${data.commissionPercent}|${data.labourCost}|${data.farmerChargesPerBag}`
 
   const calculateAndSave = async () => {
-    if (!formData.farmerName.trim()) return showToast('Enter farmer name', 'error')
+    if (!formData.farmerName.trim()) {
+      showToast('Enter farmer name', 'error')
+      return
+    }
     const kg = parseFloat(formData.weightKg) || 0
-    if (kg <= 0) return showToast('Enter valid number of bags', 'error')
+    if (kg <= 0) {
+      showToast('Enter valid number of bags', 'error')
+      return
+    }
     const qty = kg / 100
     const rate = parseFloat(formData.rate) || 0
     const totalPrice = qty * rate
@@ -105,37 +118,83 @@ const Calculation = () => {
     const netAmount = totalPrice - totalCharges
 
     const result = {
-      farmerName: formData.farmerName, quantity: qty, rate, totalAmount: totalPrice,
-      totalCharges, netAmount, weightKg: kg, bagWeight: formData.bagWeight, bags: formData.bags,
-      farmerChargesPerBag: formData.farmerChargesPerBag, farmerChargesTotal: totalCharges
+      farmerName: formData.farmerName,
+      quantity: qty,
+      rate: rate,
+      totalAmount: totalPrice,
+      totalCharges: totalCharges,
+      netAmount: netAmount,
+      weightKg: kg,
+      bagWeight: formData.bagWeight,
+      bags: formData.bags,
+      farmerChargesPerBag: formData.farmerChargesPerBag,
+      farmerChargesTotal: totalCharges
     }
     setCalculationResult(result)
 
     const currentHash = generateHash(formData)
-    if (lastSavedHash === currentHash) return showToast('Duplicate transaction not saved', 'error')
+    if (lastSavedHash === currentHash) {
+      showToast('Duplicate transaction not saved', 'error')
+      return
+    }
 
     const record = {
-      farmer_name: formData.farmerName, phone: formData.phone, crop: formData.crop, date: formData.date,
-      quantity: qty, rate, commission: formData.crop === 'Wheat' ? 0 : parseFloat(formData.commissionPercent),
-      labour: formData.crop === 'Wheat' ? 0 : parseFloat(formData.labourCost), transport: 0,
-      total_amount: totalPrice, net_amount: netAmount, payment_status: 'unpaid',
-      weight_kg: kg, bag_weight: formData.bagWeight, bags: formData.bags,
-      farmer_charges_per_bag: formData.farmerChargesPerBag, farmer_charges_total: totalCharges,
-      user_id: user?.id, tenant_id: user?.tenantId
+      farmer_name: formData.farmerName,
+      phone: formData.phone,
+      crop: formData.crop,
+      date: formData.date,
+      quantity: qty,
+      rate: rate,
+      commission: formData.crop === 'Wheat' ? 0 : parseFloat(formData.commissionPercent),
+      labour: formData.crop === 'Wheat' ? 0 : parseFloat(formData.labourCost),
+      transport: 0,
+      total_amount: totalPrice,
+      net_amount: netAmount,
+      payment_status: 'unpaid',
+      weight_kg: kg,
+      bag_weight: formData.bagWeight,
+      bags: formData.bags,
+      farmer_charges_per_bag: formData.farmerChargesPerBag,
+      farmer_charges_total: totalCharges,
+      user_id: user?.id,
+      tenant_id: user?.tenantId
     }
 
     const { error } = await supabase.from('transactions').insert([record])
-    if (error) showToast('Error saving', 'error')
-    else { showToast('Saved!', 'success'); setLastSavedHash(currentHash); clearDraft() }
+    if (error) {
+      showToast('Error saving', 'error')
+    } else {
+      showToast('Saved!', 'success')
+      setLastSavedHash(currentHash)
+      clearDraft()
+
+      // One‑time feedback popup (only if not already given)
+      const feedbackGiven = localStorage.getItem('feedback_given')
+      if (!feedbackGiven) {
+        setShowFeedbackModal(true)
+      }
+    }
   }
 
   const resetForm = () => {
     setFormData({
-      crop: 'Wheat', farmerName: '', phone: '', date: new Date().toISOString().split('T')[0],
-      bagWeight: 50, bags: '', weightKg: '', quantity: '', rate: 2585,
-      commissionPercent: 2.5, labourCost: 40, farmerChargesPerBag: 7.16, farmerChargesTotal: 0
+      crop: 'Wheat',
+      farmerName: '',
+      phone: '',
+      date: new Date().toISOString().split('T')[0],
+      bagWeight: 50,
+      bags: '',
+      weightKg: '',
+      quantity: '',
+      rate: 2585,
+      commissionPercent: 2.5,
+      labourCost: 40,
+      farmerChargesPerBag: 7.16,
+      farmerChargesTotal: 0
     })
-    setCalculationResult(null); clearDraft(); showToast('New transaction ready', 'success')
+    setCalculationResult(null)
+    clearDraft()
+    showToast('New transaction ready', 'success')
   }
 
   const transactionData = { ...formData, ...calculationResult }
@@ -194,6 +253,11 @@ const Calculation = () => {
       </main>
       <ReceiptModal isOpen={showIModal} onClose={() => setShowIModal(false)} type="I" data={transactionData} />
       <ReceiptModal isOpen={showJModal} onClose={() => setShowJModal(false)} type="J" data={transactionData} />
+      <FeedbackModal
+        isOpen={showFeedbackModal}
+        onClose={() => setShowFeedbackModal(false)}
+        onSuccess={() => console.log('Feedback saved')}
+      />
       <Footer />
     </div>
   )
