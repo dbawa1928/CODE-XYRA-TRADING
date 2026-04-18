@@ -31,7 +31,12 @@ const register = async (username, password) => {
   }
   const { data: newUser, error } = await supabase
     .from('users')
-    .insert([{ username, password, role: 'admin' }])
+    .insert([{ 
+      username, 
+      password, 
+      role: 'admin', 
+      last_login: new Date()   // ← Set last_login to registration time
+    }])
     .select()
     .single()
   if (error) {
@@ -39,11 +44,9 @@ const register = async (username, password) => {
     return false
   }
   await supabase.from('users').update({ tenant_id: newUser.id }).eq('id', newUser.id)
-  // ❌ Do NOT set localStorage or user state here
   showToast('Registration successful! Please log in.', 'success')
   return true
 }
-
   // ========== LOGIN (with last_login update) ==========
   const login = async (username, password) => {
     // Super admin login
@@ -298,4 +301,4 @@ const register = async (username, password) => {
       {children}
     </AuthContext.Provider>
   )
-                                                           }
+}
