@@ -4,15 +4,26 @@ const ThemeContext = createContext()
 export const useTheme = () => useContext(ThemeContext)
 
 export const ThemeProvider = ({ children }) => {
-  const [darkMode, setDarkMode] = useState(false)
+  // Check if it's first visit (no theme set in localStorage)
+  const isFirstVisit = !localStorage.getItem('theme')
+  const [darkMode, setDarkMode] = useState(false) // default to light
 
   useEffect(() => {
-    const saved = localStorage.getItem('theme')
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
-    const isDark = saved === 'dark' || (saved === null && prefersDark)
-    setDarkMode(isDark)
-    if (isDark) document.documentElement.classList.add('dark')
-    else document.documentElement.classList.remove('dark')
+    if (isFirstVisit) {
+      // Force light mode on first visit
+      localStorage.setItem('theme', 'light')
+      document.documentElement.classList.remove('dark')
+      setDarkMode(false)
+    } else {
+      const saved = localStorage.getItem('theme')
+      const isDark = saved === 'dark'
+      setDarkMode(isDark)
+      if (isDark) {
+        document.documentElement.classList.add('dark')
+      } else {
+        document.documentElement.classList.remove('dark')
+      }
+    }
   }, [])
 
   const toggleDarkMode = () => {
