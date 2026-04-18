@@ -46,7 +46,7 @@ const FeedbackModal = ({ isOpen, onClose, onSuccess }) => {
         </div>
         <div className="p-6">
           <p className="text-gray-600 dark:text-gray-300 mb-4">
-            Thank you for using CodeXyra Trading. How would you rate your experience?
+            How would you rate your experience?
           </p>
           <div className="flex justify-center mb-4">
             <StarRatings
