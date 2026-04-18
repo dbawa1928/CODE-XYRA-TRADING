@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { supabase } from '../supabaseClient'
 import { useAuth } from '../contexts/AuthContext'
+import { useToast } from '../contexts/ToastContext'
 import StarRatings from 'react-star-ratings'
 import { FaTimes } from 'react-icons/fa'
 
@@ -9,12 +10,13 @@ const FeedbackModal = ({ isOpen, onClose, onSuccess }) => {
   const [review, setReview] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const { user } = useAuth()
+  const { showToast } = useToast()
 
   if (!isOpen) return null
 
   const handleSubmit = async () => {
     if (rating === 0) {
-      alert('Please select a rating')
+      showToast('Please select a rating', 'error')
       return
     }
     setSubmitting(true)
@@ -29,9 +31,10 @@ const FeedbackModal = ({ isOpen, onClose, onSuccess }) => {
     setSubmitting(false)
     if (error) {
       console.error('Failed to save feedback', error)
-      alert('Failed to save feedback. Please try again.')
+      showToast('Failed to save feedback. Please try again.', 'error')
     } else {
       localStorage.setItem('feedback_given', 'true')
+      showToast('Thank you for your feedback!', 'success')
       onSuccess?.()
       onClose()
     }
