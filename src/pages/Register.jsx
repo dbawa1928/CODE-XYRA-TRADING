@@ -52,8 +52,12 @@ const Register = () => {
       return
     }
     const success = await register(username, password)
-    if (success) navigate('/home')
-    else setError('Registration failed. Username may exist.')
+    if (success) {
+      // ✅ Redirect to login page after successful registration
+      navigate('/login')
+    } else {
+      setError('Registration failed. Username may exist.')
+    }
   }
 
   return (
