@@ -253,19 +253,49 @@ const register = async (username, password) => {
     return true
   }
 
-  const deleteUser = async (userId) => {
-    if (user?.role !== 'super_admin') return false
-    await supabase.from('transactions').delete().eq('user_id', userId)
-    await supabase.from('transactions').delete().eq('tenant_id', userId)
-    const { error } = await supabase.from('users').delete().eq('id', userId)
-    if (error) {
-      showToast('Failed to delete user', 'error')
-      return false
-    }
-    showToast('User deleted', 'success')
-    await addSystemLog('delete_user', `Deleted user ID ${userId}`)
-    return true
+const deleteUser = async (userId) => {
+  if (user?.role !== 'super_admin') return false
+
+  // 1. Get user details (username, role, tenant_id)
+  const { data: userToDelete, error: fetchError } = await supabase
+    .from('users')
+    .select('id, username, role, tenant_id')
+    .eq('id', userId)
+    .single()
+  if (fetchError || !userToDelete) {
+    showToast('User not found', 'error')
+    return false
   }
+
+  // 2. If this user is an admin, delete all their workers first (to avoid foreign key issues)
+  if (userToDelete.role === 'admin') {
+    // Delete workers created by this admin
+    await supabase.from('users').delete().eq('created_by', userId)
+    // Also delete any workers that have tenant_id = userToDelete.tenant_id (which is the admin's own tenant)
+    await supabase.from('users').delete().eq('tenant_id', userToDelete.tenant_id).neq('id', userId)
+  }
+
+  // 3. Delete all transactions where user_id = userId OR tenant_id = userId
+  await supabase.from('transactions').delete().eq('user_id', userId)
+  await supabase.from('transactions').delete().eq('tenant_id', userId)
+
+  // 4. Delete all ratings submitted by this user
+  await supabase.from('ratings').delete().eq('user_id', userId)
+
+  // 5. Delete all system logs where user_id matches the username (since logs store username as string)
+  await supabase.from('system_logs').delete().eq('user_id', userToDelete.username)
+
+  // 6. Finally, delete the user itself
+  const { error } = await supabase.from('users').delete().eq('id', userId)
+  if (error) {
+    showToast('Failed to delete user', 'error')
+    return false
+  }
+
+  showToast(`User "${userToDelete.username}" and all associated data deleted`, 'success')
+  await addSystemLog('delete_user', `Deleted user ${userToDelete.username} (ID: ${userId}) with all their data`)
+  return true
+}
 
   const resetUserPassword = async (userId, newPassword = 'temp123') => {
     if (user?.role !== 'super_admin') return false
