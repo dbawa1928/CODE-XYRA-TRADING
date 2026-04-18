@@ -1,29 +1,17 @@
+// src/contexts/ThemeContext.jsx
 import React, { createContext, useState, useContext, useEffect } from 'react'
 
 const ThemeContext = createContext()
 export const useTheme = () => useContext(ThemeContext)
 
 export const ThemeProvider = ({ children }) => {
-  // Check if it's first visit (no theme set in localStorage)
-  const isFirstVisit = !localStorage.getItem('theme')
-  const [darkMode, setDarkMode] = useState(false) // default to light
+  // Always start with light mode (ignore saved and system preference)
+  const [darkMode, setDarkMode] = useState(false)
 
   useEffect(() => {
-    if (isFirstVisit) {
-      // Force light mode on first visit
-      localStorage.setItem('theme', 'light')
-      document.documentElement.classList.remove('dark')
-      setDarkMode(false)
-    } else {
-      const saved = localStorage.getItem('theme')
-      const isDark = saved === 'dark'
-      setDarkMode(isDark)
-      if (isDark) {
-        document.documentElement.classList.add('dark')
-      } else {
-        document.documentElement.classList.remove('dark')
-      }
-    }
+    // Force light mode on first load
+    document.documentElement.classList.remove('dark')
+    localStorage.setItem('theme', 'light')
   }, [])
 
   const toggleDarkMode = () => {
